@@ -1,4 +1,4 @@
-#include <torch/csrc/deploy/interpreter/interpreter_impl.h>
+#include "interpreter_impl.h"
 
 #include <dlfcn.h>
 
@@ -19,7 +19,7 @@
 #include <thread>
 
 #include <fmt/format.h>
-#include <torch/csrc/deploy/interpreter/builtin_registry.h>
+#include "builtin_registry.h"
 
 namespace py = pybind11;
 using namespace py::literals;
