@@ -288,7 +288,7 @@ union storage_t {
 
   template <class... Args>
   constexpr storage_t(Args&&... args)
-      : value_(constexpr_forward<Args>(args)...) {}
+      : value_(multipy::constexpr_forward<Args>(args)...) {}
 
   ~storage_t() {}
 };
@@ -302,7 +302,7 @@ union constexpr_storage_t {
 
   template <class... Args>
   constexpr constexpr_storage_t(Args&&... args)
-      : value_(constexpr_forward<Args>(args)...) {}
+      : value_(multipy::constexpr_forward<Args>(args)...) {}
 
   ~constexpr_storage_t() = default;
 };
@@ -317,11 +317,11 @@ struct optional_base {
   explicit constexpr optional_base(const T& v) : init_(true), storage_(v) {}
 
   explicit constexpr optional_base(T&& v)
-      : init_(true), storage_(constexpr_move(v)) {}
+      : init_(true), storage_(multipy::constexpr_move(v)) {}
 
   template <class... Args>
   explicit optional_base(in_place_t, Args&&... args)
-      : init_(true), storage_(constexpr_forward<Args>(args)...) {}
+      : init_(true), storage_(multipy::constexpr_forward<Args>(args)...) {}
 
   template <
       class U,
@@ -351,11 +351,11 @@ struct constexpr_optional_base {
       : init_(true), storage_(v) {}
 
   explicit constexpr constexpr_optional_base(T&& v)
-      : init_(true), storage_(constexpr_move(v)) {}
+      : init_(true), storage_(multipy::constexpr_move(v)) {}
 
   template <class... Args>
   explicit constexpr constexpr_optional_base(in_place_t, Args&&... args)
-      : init_(true), storage_(constexpr_forward<Args>(args)...) {}
+      : init_(true), storage_(multipy::constexpr_forward<Args>(args)...) {}
 
   template <
       class U,
@@ -471,11 +471,11 @@ class optional : private OptionalBase<T> {
 
   constexpr optional(const T& v) : OptionalBase<T>(v) {}
 
-  constexpr optional(T&& v) : OptionalBase<T>(constexpr_move(v)) {}
+  constexpr optional(T&& v) : OptionalBase<T>(multipy::constexpr_move(v)) {}
 
   template <class... Args>
   explicit constexpr optional(in_place_t, Args&&... args)
-      : OptionalBase<T>(in_place_t{}, constexpr_forward<Args>(args)...) {}
+      : OptionalBase<T>(in_place_t{}, multipy::constexpr_forward<Args>(args)...) {}
 
   template <
       class U,
@@ -485,7 +485,7 @@ class optional : private OptionalBase<T> {
       in_place_t,
       std::initializer_list<U> il,
       Args&&... args)
-      : OptionalBase<T>(in_place_t{}, il, constexpr_forward<Args>(args)...) {}
+      : OptionalBase<T>(in_place_t{}, il, multipy::constexpr_forward<Args>(args)...) {}
 
   // 20.5.4.2, Destructor
   ~optional() = default;
@@ -589,7 +589,7 @@ class optional : private OptionalBase<T> {
 
   OPTIONAL_MUTABLE_CONSTEXPR T&& operator*() && {
     assert(initialized());
-    return constexpr_move(contained_val());
+    return multipy::constexpr_move(contained_val());
   }
 
   constexpr T const& value() const& {
@@ -644,7 +644,7 @@ class optional : private OptionalBase<T> {
 
   template <class V>
   constexpr T value_or(V&& v) const& {
-    return *this ? **this : detail_::convert<T>(constexpr_forward<V>(v));
+    return *this ? **this : detail_::convert<T>(multipy::constexpr_forward<V>(v));
   }
 
 #if OPTIONAL_HAS_MOVE_ACCESSORS == 1
@@ -652,8 +652,8 @@ class optional : private OptionalBase<T> {
   template <class V>
   OPTIONAL_MUTABLE_CONSTEXPR T value_or(V&& v) && {
     return *this
-        ? constexpr_move(const_cast<optional<T>&>(*this).contained_val())
-        : detail_::convert<T>(constexpr_forward<V>(v));
+        ? multipy::constexpr_move(const_cast<optional<T>&>(*this).contained_val())
+        : detail_::convert<T>(multipy::constexpr_forward<V>(v));
   }
 
 #else
@@ -661,8 +661,8 @@ class optional : private OptionalBase<T> {
   template <class V>
   T value_or(V&& v) && {
     return *this
-        ? constexpr_move(const_cast<optional<T>&>(*this).contained_val())
-        : detail_::convert<T>(constexpr_forward<V>(v));
+        ? multipy::constexpr_move(const_cast<optional<T>&>(*this).contained_val())
+        : detail_::convert<T>(multipy::constexpr_forward<V>(v));
   }
 
 #endif
@@ -671,7 +671,7 @@ class optional : private OptionalBase<T> {
 
   template <class V>
   constexpr T value_or(V&& v) const {
-    return *this ? **this : detail_::convert<T>(constexpr_forward<V>(v));
+    return *this ? **this : detail_::convert<T>(multipy::constexpr_forward<V>(v));
   }
 
 #endif
@@ -772,7 +772,7 @@ class optional<T&> {
   constexpr typename std::decay<T>::type value_or(V&& v) const {
     return *this ? **this
                  : detail_::convert<typename std::decay<T>::type>(
-                       constexpr_forward<V>(v));
+                       multipy::constexpr_forward<V>(v));
   }
 
   // x.x.x.x, modifiers
@@ -1069,7 +1069,7 @@ void swap(optional<T>& x, optional<T>& y) noexcept(noexcept(x.swap(y))) {
 
 template <class T>
 constexpr optional<typename std::decay<T>::type> make_optional(T&& v) {
-  return optional<typename std::decay<T>::type>(constexpr_forward<T>(v));
+  return optional<typename std::decay<T>::type>(multipy::constexpr_forward<T>(v));
 }
 
 template <class X>

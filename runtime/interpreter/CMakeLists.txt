@@ -3,17 +3,32 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 SET(INTERPRETER_DIR "${DEPLOY_DIR}/interpreter" PARENT_SCOPE)
 find_package(fmt REQUIRED)
 find_package(pybind11 REQUIRED)
-find_library(/home/sahanp/local/pytorch/torch/lib/libtorch_cpu.so torch_cpu)
-SET(PYTORCH_ROOT "/home/sahanp/local/pytorch/torch")
-include_directories(BEFORE "/home/sahanp/local/pytorch/torch/include")
+#SET(PYTORCH_ROOT "/home/sahanp/local/pytorch/torch")
+#include_directories(BEFORE "/home/sahanp/local/pytorch/torch/include")
 SET(MULTIPY_UTILS "${CMAKE_CURRENT_SOURCE_DIR}/../../utils/")
+set(CMAKE_VERBOSE_MAKEFILE on)
+
+find_package (Python3 COMPONENTS Interpreter Development)
 
 # Build cpython
-SET(PYTHON_INSTALL_DIR "${INTERPRETER_DIR}/cpython")
-SET(PYTHON_INC_DIR "${PYTHON_INSTALL_DIR}/include/python3.8")
-SET(PYTHON_INC_DIR "${PYTHON_INSTALL_DIR}/include/python3.8" PARENT_SCOPE)
-SET(PYTHON_LIB "${PYTHON_INSTALL_DIR}/lib/libpython3.8.a")
-SET(PYTHON_BIN "${PYTHON_INSTALL_DIR}/bin/python3")
+#SET(PYTHON_INSTALL_DIR "${INTERPRETER_DIR}/cpython")
+#SET(PYTHON_INC_DIR "${PYTHON_INSTALL_DIR}/include/python3.8")
+#SET(PYTHON_INC_DIR "${PYTHON_INSTALL_DIR}/include/python3.8" PARENT_SCOPE)
+#SET(PYTHON_LIB "${PYTHON_INSTALL_DIR}/lib/libpython3.8.a")
+#SET(PYTHON_BIN "${PYTHON_INSTALL_DIR}/bin/python3")
+
+message(STATUS "Python3_EXECUTABLE - ${Python3_EXECUTABLE}" )
+message(STATUS "Python3_SITELIB - ${Python3_SITELIB}" )
+message(STATUS "PYTHON_LIBRARIES - ${PYTHON_LIBRARIES}" )
+
+include_directories(BEFORE "${Python3_SITELIB}/torch/include")
+#find_library("${Python3_SITELIB}/libtorch_cpu.so" torch_cpu)
+#find_library("${Python3_SITELIB}/libtorch_python.so" torch_python)
+
+link_directories(BEFORE "${Python3_SITELIB}/torch/lib")
+#link_directories("${TORCH_ROOT}/lib")
+
+
 include(FetchContent)
 
 # add gtest dependency
@@ -24,80 +39,90 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 include(GoogleTest)
 
-message(STATUS "GENERATED_CXX_PYTHON - ${GENERATED_CXX_PYTHON}" )
-include(ExternalProject)
-ExternalProject_Add(
-  cpython
-  PREFIX cpython
-  GIT_REPOSITORY https://github.com/python/cpython.git
-  GIT_TAG v3.8.6
-  UPDATE_COMMAND ""
-  PATCH_COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/cpython_patch.diff
-  BUILD_IN_SOURCE True
-  CONFIGURE_COMMAND PYTHON_INSTALL_DIR=${PYTHON_INSTALL_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/configure_cpython.sh
-  BUILD_COMMAND CFLAGS=-fPIC CPPFLAGS=-fPIC make -j8
-  INSTALL_COMMAND make install
-  BYPRODUCTS ${PYTHON_MODULES} ${PYTHON_LIB} ${PYTHON_BIN} ${PYTHON_INSTALL_DIR}/lib/libssl.a ${PYTHON_INSTALL_DIR}/lib/libcrypto.a
-  LOG_OUTPUT_ON_FAILURE True
-)
 
-# We find the built python modules, this is confusing because python build already outputs
-# the modules in a strange nested path, and then that path is relative to the
-# Cmake ExternalProject root in the cmake build dir.
-ExternalProject_Get_property(cpython SOURCE_DIR)
-SET(PYTHON_MODULE_DIR "${SOURCE_DIR}/build/temp.linux-x86_64-3.8/data/users/sahanp/multipy/runtime/build/interpreter/cpython/src/cpython/Modules")
-SET(PYTHON_STDLIB_DIR "${SOURCE_DIR}/Lib")
-SET(PYTHON_STDLIB "${PYTHON_INSTALL_DIR}/lib/libpython_stdlib3.8.a")
-# Then we use a hardcoded list of expected module names and include them in our lib
-include("CMakePythonModules.txt")
-ExternalProject_Add_Step(
-  cpython
-  archive_stdlib
-  DEPENDEES install
-  BYPRODUCTS ${PYTHON_STDLIB}
-  COMMAND ar -rc ${PYTHON_STDLIB} ${PYTHON_MODULES}
-  VERBATIM
-)
-# Get python typing extension, needed by torch
-SET(TYPING_PKG "${INTERPRETER_DIR}/third_party/typing_extensions.py")
-ExternalProject_Add(
-  typing
-  PREFIX typing
-  GIT_REPOSITORY https://github.com/python/typing.git
-  GIT_TAG 3.7.4.3
-  UPDATE_COMMAND ""
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND ""
-  INSTALL_COMMAND cp ../typing/typing_extensions/src_py3/typing_extensions.py ${TYPING_PKG}
-  BYPRODUCTS ${TYPING_PKG}
-  LOG_OUTPUT_ON_FAILURE True
-)
+#message(STATUS "GENERATED_CXX_PYTHON - ${GENERATED_CXX_PYTHON}" )
+#include(ExternalProject)
+#ExternalProject_Add(
+#  cpython
+#  PREFIX cpython
+#  GIT_REPOSITORY https://github.com/python/cpython.git
+#  GIT_TAG v3.8.6
+#  UPDATE_COMMAND ""
+#  PATCH_COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/cpython_patch.diff
+#  BUILD_IN_SOURCE True
+#  CONFIGURE_COMMAND PYTHON_INSTALL_DIR=${PYTHON_INSTALL_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/configure_cpython.sh
+#  BUILD_COMMAND CFLAGS=-fPIC CPPFLAGS=-fPIC make -j8
+#  INSTALL_COMMAND make install
+#  BYPRODUCTS ${PYTHON_MODULES} ${PYTHON_LIB} ${PYTHON_BIN} ${PYTHON_INSTALL_DIR}/lib/libssl.a ${PYTHON_INSTALL_DIR}/lib/libcrypto.a
+#  LOG_OUTPUT_ON_FAILURE True
+#)
+#
+## We find the built python modules, this is confusing because python build already outputs
+## the modules in a strange nested path, and then that path is relative to the
+## Cmake ExternalProject root in the cmake build dir.
+#ExternalProject_Get_property(cpython SOURCE_DIR)
+#SET(PYTHON_MODULE_DIR "${SOURCE_DIR}/build/temp.linux-x86_64-3.8/data/users/sahanp/multipy/runtime/build/interpreter/cpython/src/cpython/Modules")
+#SET(PYTHON_STDLIB_DIR "${SOURCE_DIR}/Lib")
+#SET(PYTHON_STDLIB "${PYTHON_INSTALL_DIR}/lib/libpython_stdlib3.8.a")
+## Then we use a hardcoded list of expected module names and include them in our lib
+#include("CMakePythonModules.txt")
+#ExternalProject_Add_Step(
+#  cpython
+#  archive_stdlib
+#  DEPENDEES install
+#  BYPRODUCTS ${PYTHON_STDLIB}
+#  COMMAND ar -rc ${PYTHON_STDLIB} ${PYTHON_MODULES}
+#  VERBATIM
+#)
+## Get python typing extension, needed by torch
+#SET(TYPING_PKG "${INTERPRETER_DIR}/third_party/typing_extensions.py")
+#ExternalProject_Add(
+#  typing
+#  PREFIX typing
+#  GIT_REPOSITORY https://github.com/python/typing.git
+#  GIT_TAG 3.7.4.3
+#  UPDATE_COMMAND ""
+#  CONFIGURE_COMMAND ""
+#  BUILD_COMMAND ""
+#  INSTALL_COMMAND cp ../typing/typing_extensions/src_py3/typing_extensions.py ${TYPING_PKG}
+#  BYPRODUCTS ${TYPING_PKG}
+#  LOG_OUTPUT_ON_FAILURE True
+#)
 
-# Output files generated by freeze script, containing frozen bytecode
-SET(FROZEN_DIR "${INTERPRETER_DIR}/frozen")
-set(FROZEN_FILES
-  ${FROZEN_DIR}/main.c
-  ${FROZEN_DIR}/bytecode_0.c
-  ${FROZEN_DIR}/bytecode_1.c
-  ${FROZEN_DIR}/bytecode_2.c
-  ${FROZEN_DIR}/bytecode_3.c
-  ${FROZEN_DIR}/bytecode_4.c
-)
-
-file(GLOB_RECURSE PYTORCH_PYTHON_SOURCE_FILES ${PYTORCH_ROOT}/*.py)
-
-# Packages to freeze: python stdlib, typing extension, and torch
-add_custom_command(
-   OUTPUT ${FROZEN_FILES}
-   WORKING_DIRECTORY ${INTERPRETER_DIR}
-   COMMAND mkdir -p ${FROZEN_DIR}
-   COMMAND ${PYTHON_BIN} ${MULTIPY_UTILS}/_freeze.py ${PYTHON_STDLIB_DIR} ${TYPING_PKG} ${PYTORCH_ROOT} --oss --install_dir ${FROZEN_DIR} --verbose
-   DEPENDS cpython typing ${PYTORCH_PYTHON_SOURCE_FILES}
-   VERBATIM
-)
+## Output files generated by freeze script, containing frozen bytecode
+#SET(FROZEN_DIR "${INTERPRETER_DIR}/frozen")
+#set(FROZEN_FILES
+#  ${FROZEN_DIR}/main.c
+#  ${FROZEN_DIR}/bytecode_0.c
+#  ${FROZEN_DIR}/bytecode_1.c
+#  ${FROZEN_DIR}/bytecode_2.c
+#  ${FROZEN_DIR}/bytecode_3.c
+#  ${FROZEN_DIR}/bytecode_4.c
+#)
+#
+#file(GLOB_RECURSE PYTORCH_PYTHON_SOURCE_FILES ${PYTORCH_ROOT}/*.py)
+#
+## Packages to freeze: python stdlib, typing extension, and torch
+#add_custom_command(
+#   OUTPUT ${FROZEN_FILES}
+#   WORKING_DIRECTORY ${INTERPRETER_DIR}
+#   COMMAND mkdir -p ${FROZEN_DIR}
+#   COMMAND ${PYTHON_BIN} ${MULTIPY_UTILS}/_freeze.py ${PYTHON_STDLIB_DIR} ${TYPING_PKG} ${PYTORCH_ROOT} --oss --install_dir ${FROZEN_DIR} --verbose
+#   DEPENDS cpython typing ${PYTORCH_PYTHON_SOURCE_FILES}
+#   VERBATIM
+#)
 
 # instantiate a library based on the objects that make up torch_python
 # make sure system python isn't used here
+
+add_custom_command(
+  OUTPUT libpython_multipy.a
+  COMMAND cp ${PYTHON_LIBRARIES} libpython_multipy.a
+  COMMAND chmod +w libpython_multipy.a
+  COMMAND "${CMAKE_OBJCOPY}" --weaken-symbol=_PyImport_FindSharedFuncptr libpython_multipy.a
+)
+add_custom_target(libpython_multipy DEPENDS libpython_multipy.a)
+
 
 
 # Build the interpreter lib, designed to be standalone and dlopened
@@ -105,31 +130,44 @@ add_custom_command(
 set(INTERPRETER_LIB_SOURCES
   ${INTERPRETER_DIR}/interpreter_impl.cpp
   ${INTERPRETER_DIR}/builtin_registry.cpp
-  ${INTERPRETER_DIR}/register_frozenpython.cpp
+  ${INTERPRETER_DIR}/plugin_registry.cpp
+  #${INTERPRETER_DIR}/register_frozenpython.cpp
   ${INTERPRETER_DIR}/import_find_sharedfuncptr.cpp
-  ${FROZEN_FILES}
+  # ${FROZEN_FILES}
   ${LINKER_SCRIPT}
 )
 
+add_library(multipy_torch SHARED multipy_torch.cpp)
+
 # instantiate a library based on the objects that make up torch_python
 # make sure system python isn't used here
-add_library(torch_python_obj_static STATIC IMPORTED)
-set_property(TARGET torch_python_obj_static PROPERTY
-             IMPORTED_LOCATION "/home/sahanp/local/pytorch/torch/lib/libtorch_python_obj_static.a")
+#add_library(torch_python_obj_static STATIC IMPORTED)
+#set_property(TARGET torch_python_obj_static PROPERTY IMPORTED_LOCATION "/home/sahanp/local/pytorch/torch/lib/libtorch_python_obj_static.a")
 
-link_directories(/home/sahanp/local/pytorch/torch/lib/)
-add_library(torch_deployinterpreter SHARED ${INTERPRETER_LIB_SOURCES} ${LINKER_SCRIPT})
+#link_directories(/home/sahanp/local/pytorch/torch/lib/)
+add_library(torch_deployinterpreter SHARED ${INTERPRETER_LIB_SOURCES} ${LINKER_SCRIPT})# python_multipy.a)
+#add_dependencies(torch_deployinterpreter python_multipy.a)
 # need to ensure headers are present before any .cpp in interpreter are compiled,
 # but cpp themselves don't clearly depend on cpython so there is a race otherwise
-add_dependencies(torch_deployinterpreter cpython)
+#add_dependencies(torch_deployinterpreter cpython)
+#target_link_libraries(torch_deployinterpreter PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/python_multipy.a)
+add_dependencies(torch_deployinterpreter libpython_multipy)
+target_link_libraries(torch_deployinterpreter PRIVATE  "-Wl,--no-as-needed -rdynamic" ${CMAKE_CURRENT_BINARY_DIR}/libpython_multipy.a)
+
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   target_compile_options(torch_deployinterpreter PRIVATE -fno-gnu-unique)
 endif()
 
 target_include_directories(torch_deployinterpreter PRIVATE ${INTERPRETER_DIR})
 target_include_directories(torch_deployinterpreter BEFORE PUBLIC ${PYTHON_INC_DIR})
-target_link_libraries(torch_deployinterpreter PRIVATE ${PYTHON_LIB} ${PYTHON_STDLIB})
-target_link_libraries(torch_deployinterpreter PRIVATE  "-Wl,--no-as-needed -rdynamic" torch_python_obj_static)
+
+#target_link_libraries(torch_deployinterpreter PRIVATE python_multipy.a)
+#target_link_libraries(torch_deployinterpreter PRIVATE ${PYTHON_LIB} ${PYTHON_STDLIB})
+#target_link_libraries(torch_deployinterpreter PRIVATE  "-Wl,--no-as-needed -rdynamic" torch_python_obj_static)
+target_link_libraries(torch_deployinterpreter PRIVATE torch_python)
 target_link_libraries(torch_deployinterpreter PRIVATE fmt::fmt-header-only)
-target_link_libraries(torch_deployinterpreter PRIVATE ${PYTHON_INSTALL_DIR}/lib/libssl.a ${PYTHON_INSTALL_DIR}/lib/libcrypto.a)
+#target_link_libraries(torch_deployinterpreter PRIVATE ${PYTHON_INSTALL_DIR}/lib/libssl.a ${PYTHON_INSTALL_DIR}/lib/libcrypto.a)
 target_link_libraries(torch_deployinterpreter PRIVATE gtest)
+target_link_libraries(torch_deployinterpreter PRIVATE multipy_torch)
+
+include_directories(${PYTHON_INCLUDE_DIRS})

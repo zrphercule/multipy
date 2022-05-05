@@ -14,9 +14,11 @@ static const size_t NUM_FROZEN_PY_BUILTIN_MODULES = 6;
 static const size_t NUM_FROZEN_PY_STDLIB_MODULES = 680;
 #endif
 
-extern "C" PyObject* initModule(void);
 
 REGISTER_TORCH_DEPLOY_BUILTIN(cpython_internal, PyImport_FrozenModules);
+
+/*
+extern "C" PyObject* initModule(void);
 
 #ifdef FBCODE_CAFFE2
 REGISTER_TORCH_DEPLOY_BUILTIN(frozentorch, nullptr, "torch._C", initModule);
@@ -28,6 +30,7 @@ REGISTER_TORCH_DEPLOY_BUILTIN(
     "torch._C",
     initModule);
 #endif
+*/
 
 BuiltinRegistryItem::BuiltinRegistryItem(
     const char* _name,
@@ -56,10 +59,14 @@ BuiltinRegistry* BuiltinRegistry::get() {
 }
 
 void BuiltinRegistry::runPreInitialization() {
+  std::cout << "preinit inner" << std::endl;
   TORCH_INTERNAL_ASSERT(!Py_IsInitialized());
-  sanityCheck();
+  std::cout << "sanityCheck" << std::endl;
+  //sanityCheck();
+  std::cout << "frozenModules" << std::endl;
   PyImport_FrozenModules = BuiltinRegistry::getAllFrozenModules();
   TORCH_INTERNAL_ASSERT(PyImport_FrozenModules != nullptr);
+  std::cout << "inititab" << std::endl;
 
   appendCPythonInittab();
 }

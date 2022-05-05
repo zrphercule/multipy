@@ -7,10 +7,11 @@
 
 #include <pybind11/embed.h>
 #include <pybind11/functional.h>
+#include <torch/csrc/Dtype.h>
 #include <torch/csrc/DynamicTypes.h>
 #include <torch/csrc/autograd/generated/variable_factories.h>
-#include <torch/csrc/deploy/Exception.h>
-#include <torch/csrc/jit/python/pybind_utils.h>
+#include "../Exception.h"
+//#include <torch/csrc/jit/python/pybind_utils.h>
 
 #include <cassert>
 #include <cstdio>
@@ -20,6 +21,7 @@
 
 #include <fmt/format.h>
 #include "builtin_registry.h"
+#include "plugin_registry.h"
 
 namespace py = pybind11;
 using namespace py::literals;
@@ -42,6 +44,8 @@ import _ssl # must come before _hashlib otherwise ssl's locks will be set to a P
 import sys
 import importlib.abc
 import linecache
+
+sys.executable = 'torch_deploy'
 
 class RegisterModuleImporter(importlib.abc.InspectLoader):
     def __init__(self, find_module_source):
@@ -153,32 +157,45 @@ struct __attribute__((visibility("hidden"))) ConcreteInterpreterImpl
     : public torch::deploy::InterpreterImpl {
   explicit ConcreteInterpreterImpl(
       const std::vector<std::string>& extra_python_paths) {
+    std::cout << "concrete2" << std::endl;
+    try {
     BuiltinRegistry::runPreInitialization();
+    } catch (std::exception& ex) {
+      std::cout << "err: " << ex.what() << std::endl;
+      throw;
+    }
+    std::cout << "preinitialization" << std::endl;
     PyPreConfig preconfig;
     PyPreConfig_InitIsolatedConfig(&preconfig);
     PyStatus status = Py_PreInitialize(&preconfig);
     TORCH_INTERNAL_ASSERT(!PyStatus_Exception(status))
+    std::cout << "preinitialize" << std::endl;
 
     PyConfig config;
-    PyConfig_InitIsolatedConfig(&config);
+    //PyConfig_InitIsolatedConfig(&config);
+    PyConfig_InitPythonConfig(&config);
+
+    std::cout << "initisolated" << std::endl;
 
     // Completely blank out the path configuration. This ensures we have
     // complete control of how our embedded Python searches for modules, and we
     // will never consult the external filesystem. See:
     // https://docs.python.org/3/c-api/init_config.html#path-configuration
-    config.site_import = 0;
-    status = PyConfig_SetString(&config, &config.base_exec_prefix, L"");
-    status =
-        PyConfig_SetString(&config, &config.base_executable, L"torch_deploy");
-    status = PyConfig_SetString(&config, &config.base_prefix, L"");
-    status = PyConfig_SetString(&config, &config.exec_prefix, L"");
-    status = PyConfig_SetString(&config, &config.executable, L"torch_deploy");
-    status = PyConfig_SetString(&config, &config.prefix, L"");
-    config.module_search_paths_set = 1;
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
-    wchar_t* module_search_paths[0] = {};
-    status = PyConfig_SetWideStringList(
-        &config, &config.module_search_paths, 0, module_search_paths);
+    //config.site_import = 0;
+    //status = PyConfig_SetString(&config, &config.base_exec_prefix, L"");
+    //status =
+    //    PyConfig_SetString(&config, &config.base_executable, L"torch_deploy");
+    //status = PyConfig_SetString(&config, &config.base_prefix, L"");
+    //status = PyConfig_SetString(&config, &config.exec_prefix, L"");
+    //status = PyConfig_SetString(&config, &config.executable, L"torch_deploy");
+    //status = PyConfig_SetString(&config, &config.prefix, L"");
+    //config.module_search_paths_set = 1;
+    //// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
+    //wchar_t* module_search_paths[0] = {};
+    //status = PyConfig_SetWideStringList(
+    //    &config, &config.module_search_paths, 0, module_search_paths);
+
+    std::cout << "banana py version = " << PY_VERSION_HEX << std::endl;
 
     status = Py_InitializeFromConfig(&config);
     PyConfig_Clear(&config);
@@ -193,6 +210,8 @@ struct __attribute__((visibility("hidden"))) ConcreteInterpreterImpl
 
     int r = PyRun_SimpleString(start);
     TORCH_INTERNAL_ASSERT(r == 0);
+
+    std::cout << "loading builtins" << std::endl;
 
     // we cache these so we don't have to repeat the conversion of strings into
     // Python and hash table lookups to get to these object
@@ -252,7 +271,7 @@ struct __attribute__((visibility("hidden"))) ConcreteInterpreterSessionImpl
   }
 
   Obj fromIValue(IValue value) override {
-    return wrap(torch::jit::toPyObject(value));
+    return wrap(multipy::toPyObject(value));
   }
   Obj createOrGetPackageImporterFromContainerFile(
       const std::shared_ptr<caffe2::serialize::PyTorchStreamReader>&
@@ -322,7 +341,7 @@ struct __attribute__((visibility("hidden"))) ConcreteInterpreterSessionImpl
   }
 
   IValue toIValue(Obj obj) const override {
-    return torch::jit::toTypeInferredIValue(unwrap(obj));
+    return multipy::toTypeInferredIValue(unwrap(obj));
   }
 
   Obj call(Obj obj, at::ArrayRef<Obj> args) override {
@@ -336,7 +355,7 @@ struct __attribute__((visibility("hidden"))) ConcreteInterpreterSessionImpl
   Obj call(Obj obj, at::ArrayRef<IValue> args) override {
     py::tuple m_args(args.size());
     for (size_t i = 0, N = args.size(); i != N; ++i) {
-      m_args[i] = torch::jit::toPyObject(args[i]);
+      m_args[i] = multipy::toPyObject(args[i]);
     }
     return wrap(call(unwrap(obj), m_args));
   }
@@ -347,13 +366,13 @@ struct __attribute__((visibility("hidden"))) ConcreteInterpreterSessionImpl
       std::unordered_map<std::string, c10::IValue> kwargs) override {
     py::tuple py_args(args.size());
     for (size_t i = 0, N = args.size(); i != N; ++i) {
-      py_args[i] = torch::jit::toPyObject(args[i]);
+      py_args[i] = multipy::toPyObject(args[i]);
     }
 
     py::dict py_kwargs;
     for (auto kv : kwargs) {
       py_kwargs[py::cast(std::get<0>(kv))] =
-          torch::jit::toPyObject(std::get<1>(kv));
+          multipy::toPyObject(std::get<1>(kv));
     }
     return wrap(call(unwrap(obj), py_args, py_kwargs));
   }
@@ -408,5 +427,6 @@ torch::deploy::InterpreterSessionImpl* ConcreteInterpreterImpl::
 extern "C" __attribute__((visibility("default")))
 torch::deploy::InterpreterImpl*
 newInterpreterImpl(const std::vector<std::string>& extra_python_paths) {
+  std::cout << "creating impl" << std::endl;
   return new ConcreteInterpreterImpl(extra_python_paths);
 }

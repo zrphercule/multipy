@@ -901,6 +901,7 @@ struct __attribute__((visibility("hidden"))) CustomLibraryImpl
             MAP_FIXED | MAP_PRIVATE,
             contents_.fd(),
             file_page_start);
+        std::cout << "mapped segment " << name_ << " " << seg_addr << " - " << seg_addr+file_length << std::endl;
         fixup_prot_.emplace_back([=]() {
           mprotect(reinterpret_cast<void*>(seg_page_start), file_length, prot);
         });
@@ -1164,7 +1165,9 @@ struct __attribute__((visibility("hidden"))) CustomLibraryImpl
       __deregister_frame(eh_frame_);
     }
     if (mapped_library_) {
-      munmap(mapped_library_, mapped_size_);
+      // TODO(tristanr): this is a hack to resolve Torch having dangling
+      // references to dynamically loaded libraries.
+      //munmap(mapped_library_, mapped_size_);
     }
   }
   void call_function(linker_dtor_function_t f) {
