@@ -8,6 +8,7 @@
 #include <multipy/runtime/deploy.h>
 #include <multipy/runtime/elf_file.h>
 #include <multipy/runtime/interpreter/Optional.hpp>
+#include <functional>
 
 #include <torch/cuda.h>
 
@@ -161,10 +162,17 @@ InterpreterSession ReplicatedObj::acquireSession(
   TORCH_DEPLOY_SAFE_CATCH_RETHROW
 }
 
+bool InterpreterSession::attachDeconstructorCallback(
+  std::function<void(void)> func
+){
+  deconstruction_callback_ = func;
+  return true;
+}
+
 // NOLINTNEXTLINE(bugprone-exception-escape)
 InterpreterSession::~InterpreterSession() {
-  if (manager_ && notifyIdx_ >= 0) {
-    manager_->resources_.free(notifyIdx_);
+  if (deconstruction_callback_ != NULL){
+    deconstruction_callback_();
   }
 }
 
