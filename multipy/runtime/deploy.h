@@ -30,7 +30,9 @@ struct TORCH_API InterpreterSession {
       InterpreterSessionImpl* impl,
       InterpreterManager* manager) noexcept
       : impl_(impl), manager_(manager) {}
-
+    InterpreterSession(
+      InterpreterSessionImpl* impl) noexcept
+      : impl_(impl), manager_(nullptr) {}
   // NOLINTNEXTLINE(cppcoreguidelines-non-private-member-variables-in-classes)
   Obj self; // when retrieved from a PythonMovable this will be set.
   InterpreterSession(InterpreterSession&&) noexcept = default;
@@ -51,11 +53,13 @@ struct TORCH_API InterpreterSession {
   bool attachDeconstructorCallback(
   std::function<void(void)> func
   );
+  PickledObject pickleObj(Obj obj);
  private:
   friend struct ReplicatedObj;
   friend struct Package;
   friend struct InterpreterManager;
   friend struct ReplicatedObjImpl;
+  size_t nextObjectId_ = 0;
   std::unique_ptr<InterpreterSessionImpl> impl_;
   InterpreterManager* manager_; // if created from one
   std::function<void(void)> deconstruction_callback_ = NULL;
@@ -153,6 +157,7 @@ struct TORCH_API InterpreterManager {
   Package loadPackage(const std::string& uri);
   Package loadPackage(
       std::shared_ptr<caffe2::serialize::ReadAdapterInterface> reader);
+  ReplicatedObj createMovable(Obj obj, InterpreterSession *I);
 
   // convience function for loading some python source code as a module across
   // all interpreters. this can be used for writing tests of deploy that need to
@@ -170,7 +175,7 @@ struct TORCH_API InterpreterManager {
  private:
   friend struct Package;
   friend struct InterpreterSession;
-  size_t nextObjectId_ = 0;
+  friend struct InterpreterSessionImpl;
   std::vector<Interpreter> instances_;
   LoadBalancer resources_;
   std::unordered_map<std::string, std::string> registeredModuleSource_;
@@ -183,6 +188,10 @@ struct TORCH_API ReplicatedObjImpl {
       PickledObject data,
       InterpreterManager* manager)
       : objectId_(object_id), data_(data), manager_(manager) {}
+  ReplicatedObjImpl(
+    size_t object_id,
+    PickledObject data
+  ) : data_(data), manager_(nullptr), objectId_(object_id) {}
   // NOLINTNEXTLINE(bugprone-exception-escape)
   ~ReplicatedObjImpl();
   void unload(const Interpreter* onThisInterpreter);
@@ -232,6 +241,7 @@ struct TORCH_API ReplicatedObj {
   ReplicatedObj(std::shared_ptr<ReplicatedObjImpl> pImpl)
       : pImpl_(std::move(pImpl)) {}
   std::shared_ptr<ReplicatedObjImpl> pImpl_;
+  void attachInterpreterManager(InterpreterManager* manager);
   friend struct Package;
   friend struct InterpreterSession;
   friend struct InterpreterManager;
